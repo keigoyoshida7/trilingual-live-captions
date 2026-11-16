@@ -1,6 +1,6 @@
 import { languages } from "./whisper-prefix.mjs";
 import { translationPacket, unpackTranslation } from "./context.mjs?v=3";
-import { protectTerminology } from "./dot-area-terms.mjs?v=6";
+import { protectTerminology } from "./dot-area-terms.mjs?v=7";
 
 const translators = new Map();
 const pairs = languages.flatMap(source => languages.filter(target => target !== source).map(target => [source, target]));

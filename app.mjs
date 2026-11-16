@@ -1,7 +1,7 @@
 import { createDetector, microphoneLevel, openMicrophone, prepareAudio } from "./audio.mjs";
 import { alignRevision, areNeighbors, joinUtterances } from "./context.mjs?v=3";
 import { SpeechSegments } from "./segments.mjs?v=5";
-import { prepareTranslation, translateCaption, translateInContext } from "./translation.mjs?v=6";
+import { prepareTranslation, translateCaption, translateInContext } from "./translation.mjs?v=7";
 import { languages } from "./whisper-prefix.mjs";
 
 const byId = id => document.getElementById(id);
@@ -126,7 +126,7 @@ function renderCaption(run, clip, source, translation) {
 function getEngine(mode) {
   if (engine?.mode === mode) return engine;
   engine?.dispose();
-  const worker = new Worker(new URL("./whisper-worker.mjs?v=6", import.meta.url), { type: "module" });
+  const worker = new Worker(new URL("./whisper-worker.mjs?v=7", import.meta.url), { type: "module" });
   const waiting = new Map();
   let nextId = 0;
   let resolveReady;

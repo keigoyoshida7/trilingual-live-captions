@@ -1,5 +1,5 @@
 import { languages, whisperPrompt } from "./whisper-prefix.mjs?v=3";
-import { correctTerminology, isStandaloneTerm, terminologyHints } from "./dot-area-terms.mjs?v=6";
+import { correctTerminology, isStandaloneTerm, terminologyHints } from "./dot-area-terms.mjs?v=7";
 
 const whisperLibrary = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
 const graniteLibrary = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2";

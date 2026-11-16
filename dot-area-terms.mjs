@@ -1,20 +1,29 @@
-// Vocabulary for the Dot Area installation and its talk, from the program and credits.
+// Vocabulary from the Dot Area credits, the FIL and IRCAM programs, and related media art.
 const exhibition = /Dot Area|IRCAM|Ircam|イルカム|展覧会|展示|作品|公演|exhibit|installation|œuvre|exposition|conférence|workshop|forum|Spat\s*5/iu;
 const spatial = /空間音響|音響空間|スピーカー|音響合成|spatial|spatialisation|surround|ambisonic|enceinte|speaker|Max\/MSP|IRCAM/iu;
 const synthesis = /音響合成|音声合成|変換モデル|ニューラル|脳波|音響モデル|neural|synth[eèé]s|audio model|generative model|ACIDS|IRCAM/iu;
 const signal = /計測|測定|電極|信号|ヘッドホン|RAVE|EEG|signal|electrode|casque|brainwave|brain activity/iu;
-const eventVenue = /(?:会場|ギャラリー|展示会場|venue|gallery|galerie|lieu d[’']exposition)\s*[はがの・:：—-]?\s*$/iu;
+const eventVenue = /(?:会場|ギャラリー|会場協力|venue|gallery|galerie|lieu d[’']exposition)(?:\s*(?:is|called|est|s[’']appelle|[はがの・:：—-]))?\s*$/iu;
+const filVenue = /Dot Area|Daikan[\s-]?yama|代官山|Daito Manabe|真鍋大度|Flying Tokyo|Audio Buffer Tokyo|Vibe Check One Two|filtokyo\.com/iu;
 const ircamSoftware = /IRCAM|Forum|音響|作曲|ワークショップ|synthesis|sound design|audio|composition|plugin|plug-in|logiciel|synthèse/iu;
-const manabe = /真鍋|Daito|Rhizomatiks|ライゾマティクス|ELEVENPLAY|MIKIKO|Reframe|リフレーム|振付|choreography|Japanese group/iu;
+const manabe = /真鍋|Daito|Rhizomatiks|ライゾマ|ELEVENPLAY|MIKIKO|Reframe|リフレーム|振付|choreography|Japanese group/iu;
 const abe = /阿部一直|Kazunao|YCAM|ワイカム|Artlab|アートラボ|三上晴子|Seiko Mikami|池田亮司|Ryoji Ikeda|キュレーション|curat/iu;
 const yoshida = /吉田慧悟|Keigo|Dot Area|liberated frequencies|S[óo]nar|Future Frequencies|Audio Buffer Tokyo|作品名|work titled|installation titled|œuvre intitulée/iu;
+const patching = /Max\/MSP|Cycling\s*['’]?\s*74|Jitter|Pure Data|パッチ|オブジェクト|patch(?:ing|er)?\b/iu;
+const visualProgramming = /TouchDesigner|Derivative|CHOP|TOP node|OSC|[Cc]reative coding|クリエイティブコーディング|ノード|programmation visuelle/iu;
+const clark = /Andy Clark|アンディ[・\s]?クラーク|cognition incarnée|embodied cognition|身体化された認知|拡張された心/iu;
+const bataille = /Georges Bataille|ジョルジュ[・\s]?バタイユ|Georges[- ]Henri Luquet|Documents|ドキュマン/iu;
 
 function term(english, aliases = [], options = {}) {
   return { english, japanese: options.ja ?? english, french: options.fr ?? english, aliases, ...options };
 }
 
+function mediaTerm(english, ja, fr, aliases = [], options = {}) {
+  return term(english, aliases, { ja, fr, protect: false, ...options });
+}
+
 const terms = [
-  term("IRCAM Forum", ["IR Kam Forum", "Ir Cam Forum", "Irkam Forum", "Air Cam Forum", "Ear Cam Forum", "Forum IRCAM", "Forum de l'IRCAM", "IRCAMフォーラム", "イルカムフォーラム", "アイアールカムフォーラム"], { fr: "Forum de l’IRCAM" }),
+  term("IRCAM Forum", ["IR Kam Forum", "Ir Cam Forum", "Irkam Forum", "Air Cam Forum", "Ear Cam Forum", "Forum IRCAM", "Forum de l'IRCAM", "IRCAMフォーラム", "イルカムフォーラム", "アイアールカムフォーラム", "イルカムのフォーラム", "IRCAMのフォーラム"], { fr: "Forum de l’IRCAM" }),
   term("IRCAM", ["Irkam", "Irkamm", "I R C A M", "イルカム", "いるかむ", "アイアールカム", "アイ アール カム"], {
     near: ["Air Cam", "Ear Cam", "IR Cam", "Aircam", "Earcam", "Ircan", "アーカム"], context: exhibition,
   }),
@@ -30,19 +39,23 @@ const terms = [
   term("Guillaume Piccarreta", ["Guillaume Picareta", "Guillaume Piccaretta", "Guillaume Picaretta", "William Piccarreta", "ギヨームピカレッタ", "ギヨーム・ピカレッタ", "ギヨーム・ピッカレッタ", "ギヨーム・ピカレタ", "ギヨムピカレッタ"], { fuzzy: true }),
   term("Paola Palumbo", ["Paula Palumbo", "Paola Palombo", "Paola Pallumbo", "パオラパルンボ", "パオラ・パルンボ", "パオラ・パルンボー", "ポーラパルンボ", "パオラパルンボウ"], { fuzzy: true }),
   term("Keigo Yoshida", ["Yoshida Keigo", "吉田 慧悟", "吉田圭吾", "吉田慶吾", "吉田敬悟", "吉田京吾", "吉田 京吾", "吉田ケイゴ", "よしだけいご", "ヨシダケイゴ"], { ja: "吉田慧悟", fuzzy: true }),
-  term("Daito Manabe", ["Manabe Daito", "Daitoh Manabe", "真鍋 大度", "真鍋大人", "真鍋大登", "まなべだいと", "マナベダイト"], { ja: "真鍋大度", fuzzy: true }),
+  term("Daito Manabe", ["Manabe Daito", "Daitoh Manabe", "真鍋 大度", "真鍋大人", "真鍋大登", "まなべだいと", "マナベダイト"], {
+    ja: "真鍋大度", fuzzy: true, near: ["ダイト"], context: /真鍋|Rhizomatiks|ライゾマ|ELEVENPLAY|MIKIKO|\bFIL\b/u,
+  }),
   term("Kazunao Abe", ["Abe Kazunao", "阿部 一直", "阿部和直", "阿部一尚", "阿部カズナオ", "あべかずなお", "アベカズナオ"], { ja: "阿部一直", fuzzy: true }),
-  term("Rinko Oka", ["Oka Rinko", "Rinco Oka", "おかりんこ", "オカリンコ", "りんこおか"], { fuzzy: true }),
+  term("Rinko Oka", ["Oka Rinko", "Rinco Oka", "岡 倫子", "岡凛子", "岡凜子", "岡りんこ", "おかりんこ", "オカリンコ", "りんこおか"], { ja: "岡倫子", fuzzy: true }),
   term("Mari Tomita", ["Tomita Mari", "Marie Tomita", "とみたまり", "トミタマリ"], { fuzzy: true }),
   term("Atsuya Tsuchida", ["Tsuchida Atsuya", "Atsuya Tuchida", "つちだあつや", "ツチダアツヤ"], { fuzzy: true }),
   term("Ryuji Murakawa", ["Murakawa Ryuji", "Ryūji Murakawa", "村川 龍司", "村川竜司", "むらかわりゅうじ", "ムラカワリュウジ"], { ja: "村川龍司", fuzzy: true }),
   term("Shinya Fujii", ["Fujii Shinya", "Shinya Fuji", "藤井 進也", "藤井真也", "ふじいしんや", "フジイシンヤ"], { ja: "藤井進也", fuzzy: true }),
   term("MUTEK.JP", ["Mutek JP", "MUTEK Japan", "ミューテックジェーピー", "ミューテック JP"]),
-  term("arsaffix Inc.", ["arsaffix", "arsaffix Inc", "アルサフィックス", "アーサフィックス"]),
-  term("Flying Tokyo 2024", ["フライング東京2024", "フライングトーキョー2024"]),
-  term("FIL", [], { near: ["fil", "fill", "フィル", "エフアイエル"], venue: true }),
+  term("MUTEK", ["ミューテック", "ミューテク"]),
+  term("arsaffix Inc.", ["arsaffix", "arsaffix Inc", "arsaffix, Inc.", "アルサフィックス", "アーサフィックス", "アーサフィクス"]),
+  term("Flying Tokyo 2024", ["フライング東京2024", "フライングトーキョー2024", "フライング東京二千二十四"]),
+  term("FIL", [], { near: ["fil", "fill", "フィル", "エフアイエル"], venue: true, katakanaWord: true }),
   term("Spat5", ["SPAT 5", "Spat Five", "Spat Cinq", "スパット5", "スパットファイブ", "スパットファイヴ"], { near: ["Spot Five", "Spot 5", "スポットファイブ", "スポット5"], context: spatial }),
   term("RAVE", [], { near: ["rave", "レイヴ", "レイブ", "レーヴ"], context: synthesis }),
+  term("AFTER", [], { exactCase: true, near: ["アフター"], context: /拡散モデル|拡散ベース|音響変換|ACIDS|diffusion model|modèle de diffusion/iu }),
   term("ACIDS", [], { near: ["acids", "アシッズ", "エーシーアイディーエス"], context: /IRCAM|Institut|音響合成|RAVE/iu }),
   term("Max/MSP", ["Max MSP", "Max-MSP", "マックスMSP", "マックスエムエスピー"]),
   term("StreamDiffusion", ["Stream Diffusion", "ストリームディフュージョン", "ストリーム・ディフュージョン"]),
@@ -51,13 +64,41 @@ const terms = [
   term("spatial audio", ["空間音響", "空間音響技術", "audio spatial", "son spatialisé"], { ja: "空間音響", fr: "audio spatial", near: ["空間音教", "空間音協"], context: spatial, localize: false }),
   term("desymmetrization", ["脱対称性", "dé-symétrisation", "désymétrisation"], { ja: "脱対称性", fr: "désymétrisation", near: ["脱対象性", "脱対照性"], context: exhibition, localize: false }),
   term("Asama stone", ["浅間石", "あさまいし", "アサマ石", "pierre d’Asama", "pierre d'Asama"], { ja: "浅間石", fr: "pierre d’Asama" }),
-  term("Roger Caillois", ["ロジェ・カイヨワ", "ロジェカイヨワ", "Roger Cayois"], { ja: "ロジェ・カイヨワ", fuzzy: true }),
-  term("Pierre Boulez", ["ピエール・ブーレーズ", "ピエールブーレーズ", "Pierre Boullez"], { ja: "ピエール・ブーレーズ", fuzzy: true }),
-  term("Georges Bataille", ["ジョルジュ・バタイユ", "ジョルジュバタイユ", "George Bataille"], { ja: "ジョルジュ・バタイユ", fuzzy: true }),
-  term("Leonardo da Vinci", ["レオナルド・ダ・ヴィンチ", "レオナルドダヴィンチ"], { ja: "レオナルド・ダ・ヴィンチ", fuzzy: true }),
-  term("Andy Clark", ["アンディ・クラーク", "アンディクラーク"], { ja: "アンディ・クラーク", fuzzy: true }),
-  term("Dynamics of Dissymmetry", ["Dynamics of Disymmetry"]),
-  term("Dialogue de l’ombre double", ["Dialogue de l'ombre double", "二重の影の対話"], { ja: "二重の影の対話" }),
+  term("Roger Caillois", ["ロジェ・カイヨワ", "ロジェカイヨワ", "ロジェカイヨア", "Roger Cayois", "Roger Caillou"], { ja: "ロジェ・カイヨワ", fuzzy: true }),
+  term("Pierre Boulez", ["ピエール・ブーレーズ", "ピエールブーレーズ", "ピエール・ブレーズ", "Pierre Boullez"], { ja: "ピエール・ブーレーズ", fuzzy: true }),
+  term("Georges Bataille", ["ジョルジュ・バタイユ", "ジョルジュバタイユ", "ジョルジュ・バタイーユ", "George Bataille"], { ja: "ジョルジュ・バタイユ", fuzzy: true }),
+  term("Leonardo da Vinci", ["レオナルド・ダ・ヴィンチ", "レオナルドダヴィンチ", "レオナルドダビンチ", "Leonard de Vinci", "Léonard de Vinci"], { ja: "レオナルド・ダ・ヴィンチ", fr: "Léonard de Vinci", fuzzy: true }),
+  term("Andy Clark", ["アンディ・クラーク", "アンディクラーク", "Andy Clarke"], { ja: "アンディ・クラーク", fuzzy: true }),
+  term("Dynamics of Dissymmetry", ["Dynamics of Disymmetry", "Dynamics of De-symmetry", "ダイナミクスオブディシメトリー"]),
+  term("Dialogue de l’ombre double", ["Dialogue de l'ombre double", "二重の影の対話", "二重の陰の対話", "ディアローグ・ドゥ・ロンブル・ドゥーブル"], { ja: "二重の影の対話" }),
+  term("L’art primitif", ["ラールプリミティフ", "ラール・プリミティフ"], {
+    near: ["l’art primitif", "l'art primitif", "primitive art", "原始芸術"], context: bataille, quoted: true,
+  }),
+  term("Being There", ["ビーイングゼア", "ビーイング・ゼア"], {
+    near: ["being there", "現れる存在", "脳と身体と世界の再統合"], context: clark, quoted: true,
+  }),
+  term("Being There: Putting Brain, Body, and World Together Again", ["Being There Putting Brain Body and World Together Again"]),
+  term("sfumato", ["スフマート", "スフマト", "sfumado", "sfoumatto"], { ja: "スフマート" }),
+  term("chiaroscuro", ["キアロスクーロ", "明暗法", "clair-obscur"], { ja: "明暗法", fr: "clair-obscur" }),
+  term("embodied cognition", ["身体化された認知", "身体化認知", "cognition incarnée", "cognition embodied"], { ja: "身体化された認知", fr: "cognition incarnée" }),
+  term("extended mind", ["拡張された心", "拡張する心", "esprit étendu"], { ja: "拡張された心", fr: "esprit étendu", localize: false }),
+  term("situated cognition", ["状況に埋め込まれた認知", "状況的認知", "cognition située"], { ja: "状況的認知", fr: "cognition située", localize: false }),
+  term("Project to Support Emerging Media Arts Creators", ["メディア芸術クリエイター育成支援事業", "文化庁メディア芸術クリエイター育成支援事業", "メディア芸術クリエイター育成事業"], { ja: "メディア芸術クリエイター育成支援事業" }),
+  term("Project to Support Emerging Media Arts Creators, 2026", ["Project to Support Emerging Media Arts Creators 2026", "2026年度メディア芸術クリエイター育成支援事業", "令和8年度文化庁メディア芸術クリエイター育成支援事業", "令和8年度メディア芸術クリエイター育成支援事業"], { ja: "2026年度メディア芸術クリエイター育成支援事業" }),
+  term("production support", ["制作サポート", "制作支援", "soutien à la production"], { ja: "制作協力", fr: "soutien à la production", localize: false }),
+  term("technical adviser", ["technical advisor", "技術アドバイザー", "技術顧問", "conseiller technique"], { ja: "技術アドバイザー", fr: "conseiller technique", localize: false }),
+  term("technical direction", ["テクニカルディレクション", "技術監修", "direction technique"], { ja: "技術監修", fr: "direction technique", localize: false }),
+  term("curatorial adviser", ["curatorial advisor", "キュラトリアル・アドバイザー", "conseiller curatorial"], { ja: "キュラトリアル・アドバイザー", fr: "conseiller curatorial", localize: false }),
+  term("endorsement, cooperation and support", ["endorsement cooperation and support", "後援・協力・支援", "後援、協力、支援"], { ja: "後援・協力・支援", localize: false }),
+
+  // FIL's public program and contributors.
+  term("Flying Tokyo", ["フライング東京", "フライングトーキョー"]),
+  term("Vibe Check One Two", ["Vibe Check 1 2", "Vibe Check One, Two", "バイブチェックワンツー", "ヴァイブチェックワンツー"]),
+  term("RUNWAY Tokyo Gathering at FIL", ["Runway Tokyo Gathering at Fill", "ランウェイ東京ギャザリングアットフィル"]),
+  term("Cristóbal Valenzuela", ["Cristobal Valenzuela", "クリストバル・バレンスエラ", "クリストバルバレンスエラ"], { fuzzy: true }),
+  term("Zachary Lieberman", ["Zach Lieberman", "Zachary Liberman", "ザカリー・リーバーマン", "ザッカリー・リーバーマン", "ザックリーバーマン"], { fuzzy: true }),
+  term("Samy Kamkar", ["Sammy Kamkar", "サミー・カムカー", "サミー・カムカール", "サミーカムカー"], { fuzzy: true }),
+  term("Daikanyama", ["Daikan-yama", "Daikan Yama", "だいかんやま", "ダイカンヤマ"], { ja: "代官山" }),
 
   // IRCAM Forum program, speakers, and audio software.
   term("IRCAM Forum Workshops Tokyo 2026", ["IRCAM Forum Workshops 2026 Tokyo", "IRCAM Forum Workshop Tokyo 2026", "イルカムフォーラムワークショップ東京2026"]),
@@ -88,8 +129,13 @@ const terms = [
   term("Antescofo", ["Antes Cofo", "アンテスコフォ", "アンテスコフ"]),
 
   // Daito Manabe's and Rhizomatiks' public projects.
-  term("Rhizomatiks Research", ["Rhizomatics Research", "Rizomatiks Research", "ライゾマティクスリサーチ", "ライゾマティクス・リサーチ"]),
-  term("Rhizomatiks", ["Rhizomatics", "Rizomatiks", "Rizomatics", "ライゾマティクス", "ライゾマティックス", "リゾマティクス"]),
+  term("Rhizomatiks Research", ["Rhizomatics Research", "Rizomatiks Research", "ライゾマティクスリサーチ", "ライゾマティクス・リサーチ", "ライゾマリサーチ"]),
+  term("Rhizomatiks", ["Rhizomatics", "Rizomatiks", "Rizomatics", "ライゾマティクス", "ライゾマティックス", "リゾマティクス", "ライゾマ"], { near: ["Rhizo", "Rhizoma", "リゾマ"], context: manabe, katakanaWord: true }),
+  term("Motoi Ishibashi", ["Ishibashi Motoi", "石橋 素", "石橋もとい", "いしばしもとい", "イシバシモトイ"], { ja: "石橋素", fuzzy: true }),
+  term("Abstract Engine", ["アブストラクトエンジン", "アブストラクト・エンジン"]),
+  term("Rhizomatiks Multiplex", ["Rhizomatiks Multiplex Exhibition", "ライゾマティクスマルティプレックス", "ライゾマ展マルティプレックス"]),
+  term("Continuum Resonance", ["連続する共鳴", "コンティニュアムレゾナンス", "コンティニューム・レゾナンス"], { fuzzy: true }),
+  term("Rhizomatiks Beyond Perception", ["Rhizomatics Beyond Perception", "ライゾマティクスビヨンドパーセプション"]),
   term("ELEVENPLAY", ["Eleven Play", "イレブンプレイ", "イレヴンプレイ"]),
   term("MIKIKO", ["ミキコ"]),
   term("Perfume", [], { nearOnly: true, near: ["Perfume", "パフューム"], context: manabe }),
@@ -144,10 +190,70 @@ const terms = [
   term("TEDxKeioU", ["TEDx Keio U", "テデックスケイオーユー", "テッドエックス慶應"]),
   term("ASSR", ["A S S R", "エーエスエスアール", "auditory steady state response", "auditory steady-state response", "聴性定常反応"], { ja: "聴性定常反応（ASSR）", localize: false }),
   term("NIME", ["N I M E", "New Interfaces for Musical Expression", "ナイム"]),
+
+  // Media art, exhibition formats, and techniques.
+  mediaTerm("media art", "メディアアート", "art médiatique", ["メディア・アート", "new media art"], { near: ["メディアート"], context: exhibition }),
+  mediaTerm("digital art", "デジタルアート", "art numérique", ["デジタル・アート"]),
+  mediaTerm("interactive art", "インタラクティブアート", "art interactif", ["インタラクティヴ・アート", "インタラクションアート"]),
+  mediaTerm("generative art", "ジェネラティブアート", "art génératif", ["ジェネレーティブアート", "ジェネラティヴ・アート", "生成芸術"]),
+  mediaTerm("algorithmic art", "アルゴリズムアート", "art algorithmique", ["アルゴリズミックアート"]),
+  mediaTerm("kinetic art", "キネティックアート", "art cinétique", ["キネティック・アート"]),
+  mediaTerm("sound art", "サウンドアート", "art sonore", ["サウンド・アート", "音響芸術"]),
+  mediaTerm("video art", "ビデオアート", "art vidéo", ["映像芸術", "ヴィデオアート", "ヴィデオ・アート"]),
+  mediaTerm("interactive installation", "インタラクティブ・インスタレーション", "installation interactive", ["インタラクティヴインスタレーション"]),
+  mediaTerm("immersive installation", "没入型インスタレーション", "installation immersive", ["イマーシブインスタレーション", "没入型のインスタレーション"]),
+  mediaTerm("sound installation", "サウンド・インスタレーション", "installation sonore", ["音響インスタレーション", "サウンドインスタレーション"]),
+  mediaTerm("audiovisual installation", "音と映像のインスタレーション", "installation audiovisuelle", ["オーディオビジュアルインスタレーション", "AVインスタレーション", "audio visual installation"]),
+  mediaTerm("audiovisual performance", "オーディオビジュアル・パフォーマンス", "performance audiovisuelle", ["音と映像のパフォーマンス", "AVパフォーマンス", "audiovisual live performance"]),
+  mediaTerm("projection mapping", "プロジェクションマッピング", "vidéomapping", ["プロジェクション・マッピング", "映像マッピング", "vidéo mapping", "mapping vidéo"]),
+  mediaTerm("creative coding", "クリエイティブコーディング", "creative coding", ["クリエイティヴコーディング", "codage créatif", "programmation créative"]),
+  mediaTerm("live coding", "ライブコーディング", "live coding", ["ライヴコーディング", "codage en direct"]),
+  mediaTerm("sonification", "ソニフィケーション", "sonification", ["ソニフィケイション"]),
+  mediaTerm("data sonification", "データのソニフィケーション", "sonification des données", ["データソニフィケーション", "データの可聴化"]),
+  mediaTerm("field recording", "フィールドレコーディング", "enregistrement de terrain", ["フィールド・レコーディング"]),
+  mediaTerm("eye tracking", "アイトラッキング", "suivi du regard", ["視線追跡", "アイトラッキング技術", "oculométrie"]),
+  mediaTerm("motion tracking", "モーショントラッキング", "suivi de mouvement", ["モーション・トラッキング"]),
+  mediaTerm("spatialization", "音の空間化", "spatialisation sonore", ["spatialisation", "sound spatialization", "音響の空間化"]),
+  mediaTerm("ambisonics", "アンビソニックス", "ambisonie", ["アンビソニック", "ambisonique"]),
+  mediaTerm("binaural audio", "バイノーラル音響", "son binaural", ["バイノーラルオーディオ", "audio binaural", "バイノーラル録音"]),
+  mediaTerm("soundscape", "サウンドスケープ", "paysage sonore", ["音風景"]),
+  mediaTerm("robotic arm", "ロボットアーム", "bras robotisé", ["ロボティックアーム", "bras robotique"]),
+  mediaTerm("diffusion model", "拡散モデル", "modèle de diffusion", ["ディフュージョンモデル", "ディフュージョン・モデル"]),
+  mediaTerm("shader", "シェーダー", "shader", ["シェイダー", "シェーダ", "nuanceur"]),
+  mediaTerm("point cloud", "点群", "nuage de points", ["点群データ", "ポイントクラウド"]),
+  mediaTerm("generative AI", "生成AI", "IA générative", ["ジェネレーティブAI", "ジェネラティブAI"]),
+  term("Spat", ["Spatialisateur"], { near: ["spat", "スパット"], context: spatial }),
+  term("Max 9", ["Max Nine", "マックス9", "マックスナイン"]),
+  term("Max", [], { near: ["マックス"], context: patching, nearOnly: true, localContextOnly: true }),
+  term("Cycling ’74", ["Cycling 74", "Cycling '74", "サイクリングセブンティーフォー"]),
+  term("TouchDesigner", ["Touch Designer", "タッチデザイナー", "タチデザ"], { near: ["TD", "ティーディー"], context: visualProgramming }),
+  term("openFrameworks", ["open frameworks", "オープンフレームワークス"], { near: ["オーエフ"], context: visualProgramming }),
+  term("p5.js", ["p 5 js", "p5 js", "ピーゴージェイエス", "ピーファイブジェイエス"]),
+  term("Pure Data", ["ピュアデータ", "ピュア・データ"], { near: ["Pd", "ピーディー"], context: patching }),
+  term("Open Sound Control", ["オープンサウンドコントロール"]),
+  term("OSC", ["O S C", "オーエスシー", "オー・エス・シー"]),
+  term("MIDI", ["M I D I", "ミディ"]),
+  term("GLSL", ["G L S L", "ジーエルエスエル"]),
+  term("Ableton Live", ["AbletonLive", "エイブルトンライブ", "エイブルトン・ライヴ"]),
+  term("Ars Electronica", ["Ars Elektronika", "アルスエレクトロニカ", "アルス・エレクトロニカ"]),
+  term("IAMAS", ["イアマス", "情報科学芸術大学院大学"], { ja: "IAMAS" }),
+  term("Japan Media Arts Festival", ["文化庁メディア芸術祭", "メディア芸術祭"], { ja: "文化庁メディア芸術祭" }),
 ];
 
 const preferredHints = ["IRCAM", "Dot Area", "De-symmetrical Core", "liberated frequencies", "Guillaume Piccarreta", "Paola Palumbo", "Keigo Yoshida", "Daito Manabe", "Kazunao Abe", "Spat5", "RAVE"];
 const topicHints = [
+  {
+    pattern: /\bFIL\b|フィル(?:で|に|の|は)|Flying Tokyo|代官山|Daikanyama|Vibe Check One Two/u,
+    names: ["FIL", "Flying Tokyo", "Audio Buffer Tokyo", "Vibe Check One Two", "Rhizomatiks", "Zachary Lieberman", "creative coding"],
+  },
+  {
+    pattern: /メディア[・\s]?アート|クリエイティブコーディング|TouchDesigner|media art|art médiatique|creative coding|projection mapping/iu,
+    names: ["media art", "interactive installation", "creative coding", "TouchDesigner", "projection mapping", "sonification", "spatialization"],
+  },
+  {
+    pattern: /Caillois|カイヨワ|Boulez|ブーレーズ|Bataille|バタイユ|da Vinci|ダ[・\s]?ヴィンチ|sfumato|スフマート|Andy Clark|アンディ[・\s]?クラーク/iu,
+    names: ["sfumato", "Dynamics of Dissymmetry", "Dialogue de l’ombre double", "L’art primitif", "Being There", "embodied cognition"],
+  },
   {
     pattern: /De-symmetrical Core|影|ombre|shadow|浅間石|Spat5/iu,
     ja: ["影の輪郭", "光の反射と屈折", "浅間石", "空間音響", "Spat5", "StreamDiffusion"],
@@ -156,9 +262,9 @@ const topicHints = [
   },
   {
     pattern: /liberated frequencies|脳波|EEG|RAVE|心地よさ|brain activit|activité cérébrale/iu,
-    ja: ["脳波", "脳波計測", "心地よさ", "聴取", "フィールドレコーディング", "RAVE"],
-    en: ["EEG", "brain activity", "perceived pleasantness", "field recordings", "RAVE"],
-    fr: ["EEG", "activité cérébrale", "agrément perçu", "enregistrements de terrain", "RAVE"],
+    ja: ["脳波", "脳波計測", "心地よさ", "聴取", "フィールドレコーディング", "RAVE", "AFTER"],
+    en: ["EEG", "brain activity", "perceived pleasantness", "field recordings", "RAVE", "AFTER"],
+    fr: ["EEG", "activité cérébrale", "agrément perçu", "enregistrements de terrain", "RAVE", "AFTER"],
   },
   {
     pattern: /IRCAM|イルカム|Paola Palumbo|Guillaume Piccarreta|MoN Takanawa/iu,
@@ -166,7 +272,7 @@ const topicHints = [
   },
   {
     pattern: manabe,
-    names: ["Daito Manabe", "Rhizomatiks", "ELEVENPLAY", "MIKIKO", "Perfume", "electromyography", "motion capture", "brain organoid"],
+    names: ["Daito Manabe", "Rhizomatiks", "Rhizomatiks Research", "Motoi Ishibashi", "ELEVENPLAY", "MIKIKO", "Perfume", "electromyography", "motion capture", "brain organoid"],
   },
   {
     pattern: abe,
@@ -189,18 +295,23 @@ function printable(entry, language) {
   return entry.english;
 }
 
-function regexFor(alias, caseSensitive = false) {
+function regexFor(alias, caseSensitive = false, katakanaWord = false) {
   const parts = alias.split(cuts).filter(Boolean).map(part => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const head = isLatinOrDigit.test(alias[0]) ? `(?<!${latinOrDigit})` : "";
   const dot = alias.endsWith("Inc.") ? "\\.?" : "";
-  const tail = isLatinOrDigit.test(parts.at(-1).at(-1)) ? `(?!${latinOrDigit})` : "";
+  const shortKatakana = katakanaWord && /^[\p{Script=Katakana}ー]{1,5}$/u.test(alias);
+  const tail = isLatinOrDigit.test(parts.at(-1).at(-1)) ? `(?!${latinOrDigit})` :
+    (shortKatakana ? "(?![\\p{Script=Katakana}ー])" : "");
   return new RegExp(`${head}${parts.join(separator)}${tail}${dot}`, caseSensitive ? "gu" : "giu");
 }
 
 const patterns = terms.flatMap(entry => {
   const original = entry.nearOnly ? [] : [entry.english, entry.japanese, entry.french, ...entry.aliases];
-  const exact = [...new Set(original)].map(alias => ({ entry, pattern: regexFor(alias, entry.near?.some(form => form === alias.toLowerCase())), near: false }));
-  return exact.concat((entry.near ?? []).map(alias => ({ entry, pattern: regexFor(alias), near: true })));
+  const exact = [...new Set(original)].map(alias => {
+    const exactCase = entry.exactCase || entry.near?.includes(alias.toLowerCase());
+    return { entry, pattern: regexFor(alias, exactCase, entry.katakanaWord), near: false };
+  });
+  return exact.concat((entry.near ?? []).map(alias => ({ entry, pattern: regexFor(alias, false, entry.katakanaWord), near: true })));
 });
 
 function folded(text) {
@@ -221,16 +332,25 @@ function editDistance(left, right) {
   return row.at(-1);
 }
 
+function isFilVenue(before, after, prior) {
+  if (/^\s+(?:in|out|up|with|de|du|des|en)\b|^\s+d[’']/iu.test(after) &&
+    !/^\s+in\s+(?:Tokyo|Daikanyama)\b/iu.test(after)) return false;
+  if (eventVenue.test(before) || /^\s*(?:で(?:の)?(?:開催|展示|設営|公演|トーク|集合)|[（(]\s*(?:代官山|Daikanyama))/iu.test(after)) return true;
+  const placePhrase = /(?:^|\s)(?:at|chez|au|à)\s*$/iu.test(before) || /^\s*(?:で|に|へ|から|の)/u.test(after);
+  return placePhrase && filVenue.test(before + " " + after + " " + prior.slice(-150));
+}
+
 function plausibleNearMatch(entry, text, start, end, prior) {
   const before = text.slice(Math.max(0, start - 48), start);
   const after = text.slice(end, end + 36);
   if (entry.venue) {
-    return eventVenue.test(before) || /^(?:\s*(?:で開催|会場|ギャラリー|venue|gallery|galerie))|^\s*[（(](?:代官山|Daikanyama)/iu.test(after);
+    return isFilVenue(before, after, prior);
   }
   if (entry.english === "RAVE" || entry.english === "ACIDS") {
     return entry.context.test(`${before} ${after}`) || /^\s*(?:の)?(?:モデル|model\b|modèle\b|team\b|group\b|équipe\b)/iu.test(after);
   }
   if (entry.english === "De-symmetrical Core" && /^\s+(?:of|du|de la|des)\b/iu.test(after)) return false;
+  if (entry.quoted && /[「『《«“"]\s*$/u.test(before) && /^\s*[」』》»”"]/u.test(after)) return true;
   const around = `${before} ${after} ${entry.localContextOnly ? "" : prior.slice(-150)}`;
   return entry.context?.test(around) ?? false;
 }
@@ -286,7 +406,10 @@ function substitute(text, matches, replacement) {
 function renderTerms(text, language, matches) {
   return substitute(text, matches, ({ entry, start, end, rank }) => {
     if (entry.localize === false && rank !== 2) return text.slice(start, end);
-    const preferred = printable(entry, language);
+    let preferred = printable(entry, language);
+    if (entry.protect === false && /^\p{Lu}/u.test(text.slice(start)) && (start === 0 || /[.!?]\s*$/u.test(text.slice(0, start)))) {
+      preferred = preferred[0].toLocaleUpperCase(language) + preferred.slice(1);
+    }
     return preferred.endsWith(".") && text[end] === "." ? preferred.slice(0, -1) : preferred;
   });
 }
@@ -297,7 +420,7 @@ export function correctTerminology(text, language, prior = "") {
 
 export function isStandaloneTerm(text) {
   const cleaned = text.replace(/[\s.!?。！？]+$/u, "").trim();
-  return terminologyMatches(cleaned).some(match => match.rank === 3 && match.start === 0 && match.end === cleaned.length);
+  return terminologyMatches(cleaned).some(match => match.entry.protect !== false && match.rank === 3 && match.start === 0 && match.end === cleaned.length);
 }
 
 export function terminologyHints(language, prior = "") {
@@ -312,7 +435,7 @@ export function terminologyHints(language, prior = "") {
 }
 
 export function protectTerminology(text, source, target, prior = "") {
-  const matches = terminologyMatches(text, prior).filter(match => match.entry.localize !== false);
+  const matches = terminologyMatches(text, prior).filter(({ entry }) => entry.localize !== false && entry.protect !== false);
   if (!matches.length) return null;
 
   const expected = new Map();

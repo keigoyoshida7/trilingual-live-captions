@@ -18,7 +18,7 @@
 
 - ブラウザ内の [Silero VAD](https://github.com/snakers4/silero-vad) で発話を区切り、Worker 内で [Granite Speech 5.0 2B の ONNX 版](https://huggingface.co/ibm-granite/granite-speech-5.0-2b-ONNX) を実行します。高精度モデルを実行できない端末は、標準設定と同じく Whisper Small（WebGPU）または Whisper Base（WebAssembly）を使用します。
 - 同じ言語の近接した発話を続けて聞き直します。2行を照合して、内容や数字が大きく変わる候補は採用しません。直前の文と合わせて [Chrome Translator API](https://developer.chrome.com/docs/ai/translator-api) に渡し、行を復元できた訳を反映します。
-- Dot Area のプログラムとクレジットの用語を認識と翻訳に使います。高精度モデルには登壇者・作品の名称と、直近の発話に対応する技術用語をヒントとして渡します。IRCAM、作品名、人名の近い表記を直し、3列で指定表記を使います。FIL や RAVE のように一般語と重なる表記は、周囲の言葉で判定します。
-- 用語の登録元に、[IRCAM Forumのプログラム](https://forum.ircam.fr/collections/detail/ircam-forum-workshops-tokyo-2026-program/)、[真鍋大度のプロフィール](https://daito.ws/ja/profile/)、[阿部一直の活動歴](https://www.ycam.jp/aboutus/interlab/staff/kazunao-abe/)、[吉田慧悟の作品一覧](https://keigoyoshida.jp/)を含みます。表記と聞き違いの候補は `dot-area-terms.mjs` にあります。
+- Dot Area のクレジット、参考文献、FIL の企画、メディアアートの技術用語を認識と翻訳に使います。高精度モデルには登壇者・作品の名称と、直近の発話に対応する技術用語をヒントとして渡します。「ライゾマ」は Rhizomatiks に揃え、会場名の FIL や書名の Being There のように一般語と重なる表記は周囲の言葉で判定します。翻訳で名前が欠けた場合は正式表記を保持する形式で再試行します。
+- 用語の登録元に、[Dot Areaのクレジット](https://forum.ircam.fr/article/detail/installation-dot-area-by-keigo-yoshida-at-fil/)、[IRCAM Forumのプログラム](https://forum.ircam.fr/collections/detail/ircam-forum-workshops-tokyo-2026-program/)、[FILのアーカイブ](https://www.filtokyo.com/archive/)、[Rhizomatiksの作品一覧](https://rhizomatiks.com/work/)、[真鍋大度のプロフィール](https://daito.ws/ja/profile/)、[阿部一直の活動歴](https://www.ycam.jp/aboutus/interlab/staff/kazunao-abe/)、[吉田慧悟の作品一覧](https://keigoyoshida.jp/)を含みます。表記と聞き違いの候補は `dot-area-terms.mjs` にあります。
 - 音声認識と言語判定、翻訳を端末内で実行します。字幕履歴はタブを閉じると消えます。
 - GitHub Pages の静的サイトです。APIキーは不要です。CDNからライブラリとモデルを読み込みます。開発時は、このディレクトリで `python3 -m http.server 8000` を実行して `http://localhost:8000/` を開きます。
