@@ -68,6 +68,7 @@ button:disabled { cursor: default; opacity: .5; }
 .controls button:hover:not(:disabled), select:hover, .follow:hover { border-color: #a4a098; }
 
 .fullscreen { width: 42px; display: grid; place-items: center; }
+.controls .prepare-pair { padding: 0 12px; background: var(--ink); color: #080808; border-color: var(--ink); }
 .corners {
   width: 14px;
   height: 14px;

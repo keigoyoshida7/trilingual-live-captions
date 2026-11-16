@@ -3,20 +3,31 @@ import { languages } from "./whisper-prefix.mjs";
 const translators = new Map();
 const pairs = languages.flatMap(source => languages.filter(target => target !== source).map(target => [source, target]));
 
-export function prepareTranslation() {
-  // Downloads can require the activation from the Start click. Create every pair here.
-  const pending = pairs.map(([sourceLanguage, targetLanguage]) => {
-    const key = `${sourceLanguage}-${targetLanguage}`;
-    if (!translators.has(key)) {
-      const request = Translator.create({ sourceLanguage, targetLanguage }).catch(error => {
-        translators.delete(key);
-        throw error;
-      });
-      translators.set(key, request);
-    }
-    return translators.get(key);
-  });
-  return Promise.all(pending);
+async function getTranslator(sourceLanguage, targetLanguage) {
+  const key = `${sourceLanguage}-${targetLanguage}`;
+  if (!translators.has(key)) {
+    const request = Translator.create({ sourceLanguage, targetLanguage }).catch(error => {
+      translators.delete(key);
+      throw error;
+    });
+    translators.set(key, request);
+  }
+  return translators.get(key);
+}
+
+export async function prepareTranslation(requestGesture, signal) {
+  // Chrome can consume the Start click when preparing a new language pair.
+  const results = await Promise.allSettled(pairs.map(pair => getTranslator(...pair)));
+  let remaining = results.filter(result => result.status === "rejected").length;
+  for (let i = 0; i < results.length; i++) {
+    signal.throwIfAborted();
+    const result = results[i];
+    if (result.status === "fulfilled") continue;
+    if (result.reason?.name !== "NotAllowedError") throw result.reason;
+    const [source, target] = pairs[i];
+    await requestGesture(source, target, remaining, () => getTranslator(source, target));
+    remaining -= 1;
+  }
 }
 
 export async function translateCaption(text, source) {

@@ -12,6 +12,7 @@ const toggle = byId("toggle");
 const toggleText = byId("toggle-text");
 const input = byId("input-language");
 const fullscreen = byId("fullscreen");
+const preparePair = byId("prepare-pair");
 const viewport = byId("viewport");
 const captions = byId("captions");
 const empty = byId("empty");
@@ -19,6 +20,7 @@ const follow = byId("follow");
 const meter = byId("meter");
 const headings = [...byId("language-headings").children];
 const privacy = "音声と翻訳は端末内で処理";
+const languageNames = { ja: "日本語", en: "英語", fr: "フランス語" };
 const states = {
   idle: ["停止中", "開始"],
   starting: ["準備中", "中止"],
@@ -40,7 +42,10 @@ function showState(state, message = privacy) {
   toggleText.textContent = action;
   toggle.toggleAttribute("data-running", state === "live" || state === "starting");
   toggle.disabled = state === "draining";
-  if (state !== "starting") download.hidden = true;
+  if (state !== "starting") {
+    download.hidden = true;
+    preparePair.hidden = true;
+  }
   if (state !== "live") meter.style.setProperty("--level", "0");
 }
 
@@ -169,11 +174,33 @@ async function closeCapture(run) {
 function failSession(run, message, error) {
   if (session !== run) return;
   session = null;
+  run.setup.abort();
   discardDraft(run);
   void closeCapture(run);
   showState("error", message);
   if (error) console.warn("Live Captions", error.message);
 }
+
+function offerPairSetup(run, source, target, remaining, create) {
+  const signal = run.setup.signal;
+  return new Promise((resolve, reject) => {
+    signal.throwIfAborted();
+    const cancel = () => reject(signal.reason);
+    signal.addEventListener("abort", cancel, { once: true });
+    detail.textContent = `初回設定 ${languageNames[source]} → ${languageNames[target]}（残り${remaining}件）`;
+    preparePair.hidden = false;
+    preparePair.focus({ preventScroll: true });
+    run.prepareNext = () => {
+      signal.removeEventListener("abort", cancel);
+      run.prepareNext = null;
+      preparePair.hidden = true;
+      detail.textContent = "翻訳モデルを準備しています。";
+      resolve(create());
+    };
+  });
+}
+
+preparePair.addEventListener("click", () => session?.prepareNext?.());
 
 function finishSession(run) {
   if (session !== run || run.phase !== "draining" || run.busy || run.queue.length) return;
@@ -236,7 +263,7 @@ async function processQueue(run) {
 }
 
 async function startSession() {
-  const run = { phase: "starting", queue: [], busy: false };
+  const run = { phase: "starting", queue: [], busy: false, setup: new AbortController() };
   session = run;
   showState("starting", "初回は音声認識と翻訳のモデルをダウンロードします。");
   download.hidden = false;
@@ -244,7 +271,7 @@ async function startSession() {
   let errorMessage = "モデルの準備に失敗しました。接続を確認して、もう一度開始してください。";
 
   try {
-    const translations = prepareTranslation();
+    const translations = prepareTranslation((...args) => offerPairSetup(run, ...args), run.setup.signal);
     run.context = new AudioContext();
     const resume = run.context.resume();
     run.recognition = getEngine();
@@ -253,7 +280,9 @@ async function startSession() {
 
     showState("starting", "ブラウザのマイク使用を許可してください。");
     download.hidden = true;
+    run.requestingMicrophone = true;
     const stream = await openMicrophone();
+    run.requestingMicrophone = false;
     run.stream = stream;
     if (session !== run) {
       void closeCapture(run);
@@ -284,7 +313,7 @@ async function startSession() {
     empty.textContent = "発話を待っています。";
     showState("live");
   } catch (error) {
-    if (error.name === "NotAllowedError" && run.recognition && download.hidden) {
+    if (error.name === "NotAllowedError" && run.requestingMicrophone) {
       errorMessage = "アドレスバーからマイクを許可し、開始を押してください。";
     } else if (error.name === "NotFoundError") {
       errorMessage = "マイクが見つかりません。接続してから開始してください。";
