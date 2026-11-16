@@ -1,4 +1,5 @@
 import { languages, whisperPrompt } from "./whisper-prefix.mjs?v=3";
+import { correctTerminology, isStandaloneTerm, terminologyHints } from "./dot-area-terms.mjs?v=4";
 
 const whisperLibrary = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1";
 const graniteLibrary = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2";
@@ -52,10 +53,11 @@ async function loadGranite() {
   return {
     name: "Granite Speech 5.0 2B",
     dispose: () => model.dispose(),
-    async transcribe(samples, language, before, maxTokens) {
+    async transcribe(samples, language, before, maxTokens, prior = "") {
       const given = language === "auto" ? "" : `The speech is in ${languageNames[language]}. `;
       const context = before ? `Context from preceding speech: ${JSON.stringify(before.slice(-220))}. ` : "";
-      const instruction = `${given}${context}Transcribe the speech verbatim in its original language with proper punctuation and capitalization.`;
+      const hints = maxTokens > 2 ? ` Keywords: ${terminologyHints(language, before || prior)}.` : "";
+      const instruction = `${given}${context}Transcribe the speech verbatim in its original language with proper punctuation and capitalization.${hints}`;
       const request = processor.tokenizer.apply_chat_template([{ role: "user", content: `<|audio|>${instruction}` }], {
         add_generation_prompt: true, tokenize: false,
       });
@@ -148,8 +150,10 @@ self.onmessage = async ({ data }) => {
       recognizer = await initialize(data.quality);
       postMessage({ type: "ready", model: recognizer.name });
     } else if (type === "transcribe") {
-      const { language, text } = await recognizer.transcribe(data.samples, data.language, data.before, data.review ? 180 : 104);
-      postMessage({ type: "result", id, language, text: language && /[\p{L}\p{N}]/u.test(text) ? text : "" });
+      const result = await recognizer.transcribe(data.samples, data.language, data.before, data.review ? 180 : 104, data.prior);
+      const language = result.language ?? (isStandaloneTerm(result.text) ? "en" : null);
+      const text = language && /[\p{L}\p{N}]/u.test(result.text) ? correctTerminology(result.text, language, data.prior || data.before) : "";
+      postMessage({ type: "result", id, language, text });
     }
   } catch (error) {
     postMessage({ type: "error", id, review: Boolean(data.review), message: error.message });

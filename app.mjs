@@ -1,7 +1,7 @@
 import { createDetector, microphoneLevel, openMicrophone, prepareAudio } from "./audio.mjs";
 import { alignRevision, areNeighbors, joinUtterances } from "./context.mjs?v=3";
 import { SpeechSegments } from "./segments.mjs?v=3";
-import { prepareTranslation, translateCaption, translateInContext } from "./translation.mjs?v=3";
+import { prepareTranslation, translateCaption, translateInContext } from "./translation.mjs?v=4";
 import { languages } from "./whisper-prefix.mjs";
 
 const byId = id => document.getElementById(id);
@@ -126,7 +126,7 @@ function renderCaption(run, clip, source, translation) {
 function getEngine(mode) {
   if (engine?.mode === mode) return engine;
   engine?.dispose();
-  const worker = new Worker(new URL("./whisper-worker.mjs?v=3", import.meta.url), { type: "module" });
+  const worker = new Worker(new URL("./whisper-worker.mjs?v=4", import.meta.url), { type: "module" });
   const waiting = new Map();
   let nextId = 0;
   let resolveReady;
@@ -174,7 +174,7 @@ function getEngine(mode) {
         waiting.set(id, { resolve, reject });
         worker.postMessage({
           type: "transcribe", id, language: clip.language, samples: clip.samples,
-          before: clip.before, review: clip.review,
+          before: clip.before, prior: clip.prior, review: clip.review,
         }, [clip.samples.buffer]);
       });
     },
@@ -264,7 +264,7 @@ async function reviewCaptions(run, { before, first, second }) {
   const entries = [first, second];
   const preceding = before?.text ?? "";
   const result = await run.recognition.transcribe({
-    language: first.source, samples: joinUtterances(first, second), before: preceding, review: true,
+    language: first.source, samples: joinUtterances(first, second), before: preceding, prior: first.text, review: true,
   });
   if (session !== run) return;
   const texts = alignRevision(first.text, second.text, result.text, first.source) ?? entries.map(entry => entry.text);
@@ -305,7 +305,7 @@ async function processQueue(run) {
       }
       const clip = run.queue.shift();
       const audio = clip.final ? clip.samples.slice() : null;
-      const { language, text } = await run.recognition.transcribe(clip);
+      const { language, text } = await run.recognition.transcribe({ ...clip, prior: run.recent.at(-1)?.text });
       if (session !== run) break;
       if (!language || !text) {
         if (clip.final) discardDraft(run, clip.id);
