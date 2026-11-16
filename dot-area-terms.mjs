@@ -14,7 +14,7 @@ function term(english, aliases = [], options = {}) {
 }
 
 const terms = [
-  term("IRCAM Forum", ["Ircam Forum", "IR Kam Forum", "Ir Cam Forum", "Irkam Forum", "Air Cam Forum", "Ear Cam Forum", "イルカムフォーラム", "イルカム フォーラム", "アイアールカムフォーラム"]),
+  term("IRCAM Forum", ["IR Kam Forum", "Ir Cam Forum", "Irkam Forum", "Air Cam Forum", "Ear Cam Forum", "Forum IRCAM", "Forum de l'IRCAM", "IRCAMフォーラム", "イルカムフォーラム", "アイアールカムフォーラム"], { fr: "Forum de l’IRCAM" }),
   term("IRCAM", ["Irkam", "Irkamm", "I R C A M", "イルカム", "いるかむ", "アイアールカム", "アイ アール カム"], {
     near: ["Air Cam", "Ear Cam", "IR Cam", "Aircam", "Earcam", "Ircan", "アーカム"], context: exhibition,
   }),
@@ -29,9 +29,9 @@ const terms = [
   }),
   term("Guillaume Piccarreta", ["Guillaume Picareta", "Guillaume Piccaretta", "Guillaume Picaretta", "William Piccarreta", "ギヨームピカレッタ", "ギヨーム・ピカレッタ", "ギヨーム・ピッカレッタ", "ギヨーム・ピカレタ", "ギヨムピカレッタ"], { fuzzy: true }),
   term("Paola Palumbo", ["Paula Palumbo", "Paola Palombo", "Paola Pallumbo", "パオラパルンボ", "パオラ・パルンボ", "パオラ・パルンボー", "ポーラパルンボ", "パオラパルンボウ"], { fuzzy: true }),
-  term("Keigo Yoshida", ["Yoshida Keigo", "吉田 慧悟", "吉田圭吾", "吉田慶吾", "吉田敬悟", "よしだけいご", "ヨシダケイゴ"], { ja: "吉田慧悟", fuzzy: true }),
+  term("Keigo Yoshida", ["Yoshida Keigo", "吉田 慧悟", "吉田圭吾", "吉田慶吾", "吉田敬悟", "吉田京吾", "吉田 京吾", "吉田ケイゴ", "よしだけいご", "ヨシダケイゴ"], { ja: "吉田慧悟", fuzzy: true }),
   term("Daito Manabe", ["Manabe Daito", "Daitoh Manabe", "真鍋 大度", "真鍋大人", "真鍋大登", "まなべだいと", "マナベダイト"], { ja: "真鍋大度", fuzzy: true }),
-  term("Kazunao Abe", ["Abe Kazunao", "阿部 一直", "阿部和直", "阿部一尚", "あべかずなお", "アベカズナオ"], { ja: "阿部一直", fuzzy: true }),
+  term("Kazunao Abe", ["Abe Kazunao", "阿部 一直", "阿部和直", "阿部一尚", "阿部カズナオ", "あべかずなお", "アベカズナオ"], { ja: "阿部一直", fuzzy: true }),
   term("Rinko Oka", ["Oka Rinko", "Rinco Oka", "おかりんこ", "オカリンコ", "りんこおか"], { fuzzy: true }),
   term("Mari Tomita", ["Tomita Mari", "Marie Tomita", "とみたまり", "トミタマリ"], { fuzzy: true }),
   term("Atsuya Tsuchida", ["Tsuchida Atsuya", "Atsuya Tuchida", "つちだあつや", "ツチダアツヤ"], { fuzzy: true }),
@@ -283,12 +283,16 @@ function substitute(text, matches, replacement) {
   return result + text.slice(cursor);
 }
 
-export function correctTerminology(text, language, prior = "") {
-  return substitute(text, terminologyMatches(text, prior), ({ entry, start, end, rank }) => {
+function renderTerms(text, language, matches) {
+  return substitute(text, matches, ({ entry, start, end, rank }) => {
     if (entry.localize === false && rank !== 2) return text.slice(start, end);
     const preferred = printable(entry, language);
     return preferred.endsWith(".") && text[end] === "." ? preferred.slice(0, -1) : preferred;
   });
+}
+
+export function correctTerminology(text, language, prior = "") {
+  return renderTerms(text, language, terminologyMatches(text, prior));
 }
 
 export function isStandaloneTerm(text) {
@@ -307,20 +311,33 @@ export function terminologyHints(language, prior = "") {
   return [...new Set([...recent, ...theme, ...core])].slice(0, 18).join(", ");
 }
 
-export function protectTerminology(text, target, prior = "") {
+export function protectTerminology(text, source, target, prior = "") {
   const matches = terminologyMatches(text, prior).filter(match => match.entry.localize !== false);
-  if (!matches.length) return { input: text, restore: translated => translated };
+  if (!matches.length) return null;
+
+  const expected = new Map();
+  for (const { entry } of matches) expected.set(entry, (expected.get(entry) ?? 0) + 1);
 
   let base = 627400;
   while (text.includes(String(base).slice(0, 4))) base += 100;
-  const input = substitute(text, matches, (_, index) => `⟦${base + index}⟧`);
-  const markers = /[⟦\[［【〔]\s*((?:[0-9０-９]\s*){6})[⟧\]］】〕]/gu;
+  // Keep the name in the input so the translator can use it to interpret the sentence.
+  const input = substitute(text, matches, ({ entry }, index) => `[${printable(entry, source)} ${base + index}]`);
+  const markers = /[⟦\[［【〔]([^⟦\[［【〔⟧\]］】〕\r\n]{1,144})[⟧\]］】〕]/gu;
+  const markerId = /(?:^|\s)((?:[0-9０-９]\s*){6})$/u;
   return {
     input,
+    correct(translated) {
+      const recognized = terminologyMatches(translated, `${prior} ${text}`).filter(({ entry }) => expected.has(entry));
+      const remaining = new Map(expected);
+      for (const { entry } of recognized) remaining.set(entry, remaining.get(entry) - 1);
+      return { text: renderTerms(translated, target, recognized), complete: [...remaining.values()].every(count => count <= 0) };
+    },
     restore(translated) {
       const used = new Set();
       let duplicate = false;
-      const result = translated.replace(markers, (marker, digits) => {
+      const result = translated.replace(markers, (marker, body) => {
+        const digits = body.match(markerId)?.[1];
+        if (!digits) return marker;
         const index = Number(digits.normalize("NFKC").replace(/\s/g, "")) - base;
         const match = matches[index];
         if (!match) return marker;

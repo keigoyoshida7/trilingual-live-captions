@@ -1,6 +1,6 @@
 import { languages } from "./whisper-prefix.mjs";
 import { translationPacket, unpackTranslation } from "./context.mjs?v=3";
-import { correctTerminology, protectTerminology } from "./dot-area-terms.mjs?v=5";
+import { protectTerminology } from "./dot-area-terms.mjs?v=6";
 
 const translators = new Map();
 const pairs = languages.flatMap(source => languages.filter(target => target !== source).map(target => [source, target]));
@@ -37,11 +37,13 @@ async function translate(text, source, target, prior = "") {
   const key = `${source}-${target}`;
   const translator = await translators.get(key);
   try {
-    const guarded = protectTerminology(text, target, prior);
-    const result = await translator.translate(guarded.input);
-    const restored = guarded.restore(result);
-    if (restored !== null) return restored;
-    return correctTerminology(await translator.translate(text), target, prior);
+    const natural = await translator.translate(text);
+    const guarded = protectTerminology(text, source, target, prior);
+    if (!guarded) return natural;
+    const corrected = guarded.correct(natural);
+    if (corrected.complete) return corrected.text;
+    const restored = guarded.restore(await translator.translate(guarded.input));
+    return restored ?? corrected.text;
   } catch (error) {
     translators.delete(key);
     translator?.destroy();
