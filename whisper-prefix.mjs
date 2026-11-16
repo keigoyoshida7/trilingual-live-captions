@@ -1,17 +1,17 @@
 export const languages = ["ja", "en", "fr"];
 
-export function whisperPrompt(config, language) {
+export function whisperPrompt(config, language, context = []) {
   const languageTokens = new Map(languages.map(code => [config.lang_to_id[`<|${code}|>`], code]));
   const allLanguageTokens = Object.values(config.lang_to_id);
   const transcribe = config.task_to_id.transcribe;
   const noTimestamps = config.no_timestamps_token_id;
-  const prefix = [config.decoder_start_token_id];
+  const prefix = [...context, config.decoder_start_token_id];
   let unsupported = false;
 
   if (language !== "auto") prefix.push(config.lang_to_id[`<|${language}|>`], transcribe, noTimestamps);
 
   function process(inputIds, logits) {
-    const position = inputIds[0].length;
+    const position = inputIds[0].length - context.length;
     const scores = logits.data;
 
     // The pinned JS runtime defaults to English without a language prompt.
@@ -38,6 +38,6 @@ export function whisperPrompt(config, language) {
   return {
     prefix,
     process,
-    languageOf: ids => unsupported ? null : languageTokens.get(ids[1]) ?? null,
+    languageOf: ids => unsupported ? null : languageTokens.get(ids[context.length + 1]) ?? null,
   };
 }

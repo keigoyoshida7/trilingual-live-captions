@@ -30,11 +30,13 @@ export class SpeechSegments {
     this.frames = [];
     this.id = 0;
     this.voiceFrames = 0;
+    this.samplesSeen = 0;
     this.silence = 0;
     this.nextPreview = firstPreview;
   }
 
   push(probability, frame) {
+    this.samplesSeen += frame.length;
     if (!this.frames.length && probability < onset) {
       this.lead.push(frame);
       if (this.lead.length > leadFrames) this.lead.shift();
@@ -66,6 +68,7 @@ export class SpeechSegments {
   finish() {
     const skip = Math.max(0, this.silence - tailFrames);
     const frames = this.frames.slice(0, this.frames.length - skip);
+    const end = this.samplesSeen - skip * (this.frames.at(-1)?.length ?? 0);
     const voiced = this.voiceFrames;
     const id = this.id++;
     const language = this.language;
@@ -75,6 +78,9 @@ export class SpeechSegments {
     this.silence = 0;
     this.nextPreview = firstPreview;
 
-    if (voiced >= minSpeech) this.onClip({ id, final: true, language, samples: joinFrames(frames) });
+    if (voiced >= minSpeech) {
+      const samples = joinFrames(frames);
+      this.onClip({ id, final: true, language, start: end - samples.length, end, samples });
+    }
   }
 }

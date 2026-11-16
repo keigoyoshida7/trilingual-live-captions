@@ -1,4 +1,5 @@
 import { languages } from "./whisper-prefix.mjs";
+import { translationPacket, unpackTranslation } from "./context.mjs?v=3";
 
 const translators = new Map();
 const pairs = languages.flatMap(source => languages.filter(target => target !== source).map(target => [source, target]));
@@ -30,19 +31,36 @@ export async function prepareTranslation(requestGesture, signal) {
   }
 }
 
-export async function translateCaption(text, source) {
-  const results = await Promise.allSettled(languages.map(async target => {
-    if (target === source) return text;
-    const key = `${source}-${target}`;
-    const translator = await translators.get(key);
-    try {
-      return await translator.translate(text);
-    } catch (error) {
-      translators.delete(key);
-      translator.destroy();
-      throw error;
-    }
-  }));
+async function translate(text, source, target) {
+  if (target === source) return text;
+  const key = `${source}-${target}`;
+  const translator = await translators.get(key);
+  try {
+    return await translator.translate(text);
+  } catch (error) {
+    translators.delete(key);
+    translator?.destroy();
+    throw error;
+  }
+}
 
+export async function translateCaption(text, source) {
+  const results = await Promise.allSettled(languages.map(target => translate(text, source, target)));
   return Object.fromEntries(languages.map((code, i) => [code, results[i].value?.trim() || null]));
+}
+
+export async function translateInContext(source, before, texts, previousTranslations) {
+  const offset = before ? 1 : 0;
+  const packet = translationPacket(before ? [before, ...texts] : texts);
+  const results = await Promise.allSettled(languages.map(async target => {
+    if (target === source) return texts;
+    const translated = await translate(packet, source, target);
+    const originals = previousTranslations.map(row => row[target]);
+    if (offset) originals.unshift(null);
+    return unpackTranslation(translated, originals)?.slice(offset);
+  }));
+  return texts.map((_, row) => Object.fromEntries(languages.flatMap((code, index) => {
+    const text = results[index].value?.[row];
+    return text ? [[code, text]] : [];
+  })));
 }

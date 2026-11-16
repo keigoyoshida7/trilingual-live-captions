@@ -1,6 +1,7 @@
 import { createDetector, microphoneLevel, openMicrophone, prepareAudio } from "./audio.mjs";
-import { SpeechSegments } from "./segments.mjs";
-import { prepareTranslation, translateCaption } from "./translation.mjs";
+import { alignRevision, areNeighbors, joinUtterances } from "./context.mjs?v=3";
+import { SpeechSegments } from "./segments.mjs?v=3";
+import { prepareTranslation, translateCaption, translateInContext } from "./translation.mjs?v=3";
 import { languages } from "./whisper-prefix.mjs";
 
 const byId = id => document.getElementById(id);
@@ -11,6 +12,7 @@ const download = byId("download");
 const toggle = byId("toggle");
 const toggleText = byId("toggle-text");
 const input = byId("input-language");
+const quality = byId("quality");
 const fullscreen = byId("fullscreen");
 const preparePair = byId("prepare-pair");
 const viewport = byId("viewport");
@@ -42,6 +44,7 @@ function showState(state, message = privacy) {
   toggleText.textContent = action;
   toggle.toggleAttribute("data-running", state === "live" || state === "starting");
   toggle.disabled = state === "draining";
+  quality.disabled = state === "starting" || state === "live" || state === "draining";
   if (state !== "starting") {
     download.hidden = true;
     preparePair.hidden = true;
@@ -86,6 +89,15 @@ function discardDraft(run, id = draft?.id) {
   empty.hidden = captions.children.length > 0;
 }
 
+function paintCaption(row, translation) {
+  for (const cell of row.children) {
+    const text = translation[cell.lang];
+    cell.textContent = text || "—";
+    cell.toggleAttribute("data-unavailable", !text);
+    cell.title = text ? "" : "翻訳を取得できませんでした。";
+  }
+}
+
 function renderCaption(run, clip, source, translation) {
   let row = draft?.run === run && draft.id === clip.id ? draft.row : null;
   if (!row) {
@@ -101,23 +113,20 @@ function renderCaption(run, clip, source, translation) {
     captions.append(row);
   }
 
-  for (const cell of row.children) {
-    const text = translation[cell.lang];
-    cell.textContent = text || "—";
-    cell.toggleAttribute("data-unavailable", !text);
-    cell.title = text ? "" : "翻訳を取得できませんでした。";
-  }
+  paintCaption(row, translation);
   for (const heading of headings) heading.toggleAttribute("data-current", heading.dataset.language === source);
   row.toggleAttribute("data-partial", !clip.final);
   draft = clip.final ? null : { run, id: clip.id, row };
   empty.hidden = true;
   while (captions.children.length > 80) captions.firstElementChild.remove();
   trackLatest();
+  return row;
 }
 
-function getEngine() {
-  if (engine) return engine;
-  const worker = new Worker(new URL("./whisper-worker.mjs", import.meta.url), { type: "module" });
+function getEngine(mode) {
+  if (engine?.mode === mode) return engine;
+  engine?.dispose();
+  const worker = new Worker(new URL("./whisper-worker.mjs?v=3", import.meta.url), { type: "module" });
   const waiting = new Map();
   let nextId = 0;
   let resolveReady;
@@ -141,10 +150,14 @@ function getEngine() {
       download.hidden = false;
       if (Number.isFinite(data.value)) download.value = data.value;
       else download.removeAttribute("value");
+      if (data.fallback && preparePair.hidden) detail.textContent = "端末に合わせて標準モデルを準備しています。";
     } else if (data.type === "ready") {
-      resolveReady();
+      resolveReady(data.model);
     } else if (data.type === "result") {
       waiting.get(data.id)?.resolve(data);
+      waiting.delete(data.id);
+    } else if (data.type === "error" && data.review) {
+      waiting.get(data.id)?.reject(new Error(data.message));
       waiting.delete(data.id);
     } else if (data.type === "error") {
       fail(new Error(data.message));
@@ -152,16 +165,21 @@ function getEngine() {
   });
 
   engine = {
+    mode,
     ready,
+    dispose() { fail(new DOMException("Model changed", "AbortError")); },
     transcribe(clip) {
       const id = nextId++;
       return new Promise((resolve, reject) => {
         waiting.set(id, { resolve, reject });
-        worker.postMessage({ type: "transcribe", id, language: clip.language, samples: clip.samples }, [clip.samples.buffer]);
+        worker.postMessage({
+          type: "transcribe", id, language: clip.language, samples: clip.samples,
+          before: clip.before, review: clip.review,
+        }, [clip.samples.buffer]);
       });
     },
   };
-  worker.postMessage({ type: "load" });
+  worker.postMessage({ type: "load", quality: mode });
   return engine;
 }
 
@@ -232,11 +250,61 @@ function enqueue(run, clip) {
   if (!run.busy) void processQueue(run);
 }
 
+function rememberCaption(run, record) {
+  const first = run.recent.at(-1);
+  const before = run.recent.at(-2);
+  run.recent.push(record);
+  if (run.recent.length > 2) run.recent.shift();
+  if (areNeighbors(first, record)) {
+    run.review = { before: areNeighbors(before, first) ? before : null, first, second: record };
+  }
+}
+
+async function reviewCaptions(run, { before, first, second }) {
+  const entries = [first, second];
+  const preceding = before?.text ?? "";
+  const result = await run.recognition.transcribe({
+    language: first.source, samples: joinUtterances(first, second), before: preceding, review: true,
+  });
+  if (session !== run) return;
+  const texts = alignRevision(first.text, second.text, result.text, first.source) ?? entries.map(entry => entry.text);
+  const contextual = await translateInContext(first.source, preceding, texts, entries.map(entry => entry.values));
+  if (session !== run) return;
+
+  const baseline = await Promise.all(entries.map((entry, i) => entry.text === texts[i] ||
+    languages.every(language => contextual[i][language]) ? entry.values : translateCaption(texts[i], entry.source)));
+  if (session !== run) return;
+
+  for (const [i, entry] of entries.entries()) {
+    if (!entry.row.isConnected) continue;
+    const values = { ...baseline[i], ...contextual[i], [entry.source]: texts[i] };
+    if (!languages.every(language => values[language])) continue;
+    if (languages.some(language => values[language] !== entry.values[language])) {
+      paintCaption(entry.row, values);
+      entry.row.dataset.revised = "";
+    }
+    entry.text = texts[i];
+    entry.values = values;
+  }
+  trackLatest();
+}
+
 async function processQueue(run) {
   run.busy = true;
   try {
-    while (session === run && run.queue.length) {
+    while (session === run && (run.queue.length || run.review)) {
+      if (!run.queue.length) {
+        const job = run.review;
+        run.review = null;
+        try {
+          await reviewCaptions(run, job);
+        } catch (error) {
+          console.warn("Caption revision skipped", error.message);
+        }
+        continue;
+      }
       const clip = run.queue.shift();
+      const audio = clip.final ? clip.samples.slice() : null;
       const { language, text } = await run.recognition.transcribe(clip);
       if (session !== run) break;
       if (!language || !text) {
@@ -247,11 +315,14 @@ async function processQueue(run) {
       const reused = preview?.id === clip.id && preview.source === language && preview.text === text;
       const values = reused ? preview.values : await translateCaption(text, language);
       if (session !== run) break;
-      renderCaption(run, clip, language, values);
+      const row = renderCaption(run, clip, language, values);
+      if (clip.final) {
+        rememberCaption(run, { id: clip.id, start: clip.start, end: clip.end, audio, source: language, text, values, row });
+      }
       const allTranslated = languages.every(code => values[code]);
       run.lastTranslation = !clip.final && allTranslated ? { id: clip.id, source: language, text, values } : null;
       if (run.phase === "live") {
-        showState("live", allTranslated ? privacy : "一部の翻訳を取得できませんでした。停止して再開すると再試行できます。");
+        showState("live", allTranslated ? `${run.model} · 端末内処理` : "一部の翻訳を取得できませんでした。停止して再開すると再試行できます。");
       }
     }
   } catch (error) {
@@ -263,9 +334,9 @@ async function processQueue(run) {
 }
 
 async function startSession() {
-  const run = { phase: "starting", queue: [], busy: false, setup: new AbortController() };
+  const run = { phase: "starting", queue: [], recent: [], busy: false, setup: new AbortController() };
   session = run;
-  showState("starting", "初回は音声認識と翻訳のモデルをダウンロードします。");
+  showState("starting", quality.value === "high" ? "高精度モデルを準備中。初回は約1.7 GBをダウンロード。" : "初回は音声認識と翻訳のモデルをダウンロードします。");
   download.hidden = false;
   download.removeAttribute("value");
   let errorMessage = "モデルの準備に失敗しました。接続を確認して、もう一度開始してください。";
@@ -274,9 +345,10 @@ async function startSession() {
     const translations = prepareTranslation((...args) => offerPairSetup(run, ...args), run.setup.signal);
     run.context = new AudioContext();
     const resume = run.context.resume();
-    run.recognition = getEngine();
-    const [MicVAD] = await Promise.all([prepareAudio(), translations, run.recognition.ready, resume]);
+    run.recognition = getEngine(quality.value);
+    const [MicVAD, , model] = await Promise.all([prepareAudio(), translations, run.recognition.ready, resume]);
     if (session !== run) return;
+    run.model = model;
 
     showState("starting", "ブラウザのマイク使用を許可してください。");
     download.hidden = true;
@@ -311,7 +383,7 @@ async function startSession() {
     }, { once: true });
     run.phase = "live";
     empty.textContent = "発話を待っています。";
-    showState("live");
+    showState("live", `${run.model} · 端末内処理`);
   } catch (error) {
     if (error.name === "NotAllowedError" && run.requestingMicrophone) {
       errorMessage = "アドレスバーからマイクを許可し、開始を押してください。";
