@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="description" content="マイクから日本語・英語・フランス語を聞き取り、3列の字幕に。">
+  <meta name="google" content="notranslate">
+  <title>Live Captions</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="identity">
+      <h1 lang="en">Live Captions</h1>
+      <div id="status" class="status" role="status" data-state="idle">
+        <span class="light" aria-hidden="true"></span>
+        <span id="status-text">停止中</span>
+      </div>
+    </div>
+    <div class="controls">
+      <label class="input-label" for="input-language">
+        <span>入力</span>
+        <select id="input-language" aria-label="入力言語">
+          <option value="auto">自動検出</option>
+          <option value="ja">日本語</option>
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+        </select>
+      </label>
+      <button id="fullscreen" class="fullscreen" type="button" aria-label="全画面表示" title="全画面表示" hidden>
+        <span class="corners" aria-hidden="true"></span>
+      </button>
+      <button id="toggle" class="toggle" type="button" disabled>
+        <span class="play" aria-hidden="true"></span>
+        <span id="toggle-text">開始</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="stage" aria-label="3言語の字幕">
+    <div class="language-headings columns" id="language-headings">
+      <h2 lang="ja" data-language="ja">日本語</h2>
+      <h2 lang="en" data-language="en">English</h2>
+      <h2 lang="fr" data-language="fr">Français</h2>
+    </div>
+    <div id="viewport" class="viewport" tabindex="0" aria-label="字幕履歴">
+      <div id="captions" class="captions" role="list" aria-label="発話順の字幕"></div>
+      <p id="empty" class="empty">マイクを開始すると、ここに字幕が流れます。</p>
+    </div>
+    <button id="follow" class="follow" type="button" hidden>最新の字幕 ↓</button>
+  </main>
+
+  <footer class="footer">
+    <span id="detail" aria-live="polite">音声と翻訳は端末内で処理</span>
+    <progress id="download" max="100" aria-label="音声認識モデルのダウンロード進捗" hidden></progress>
+    <span id="meter" class="meter" aria-hidden="true"><i></i></span>
+  </footer>
+  <noscript>このページの利用には JavaScript が必要です。</noscript>
+</body>
+</html>

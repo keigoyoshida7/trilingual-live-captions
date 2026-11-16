@@ -1,0 +1,312 @@
+import { createDetector, microphoneLevel, openMicrophone, prepareAudio } from "./audio.mjs";
+import { SpeechSegments } from "./segments.mjs";
+import { prepareTranslation, translateCaption } from "./translation.mjs";
+import { languages } from "./whisper-prefix.mjs";
+
+const byId = id => document.getElementById(id);
+const status = byId("status");
+const statusText = byId("status-text");
+const detail = byId("detail");
+const download = byId("download");
+const toggle = byId("toggle");
+const toggleText = byId("toggle-text");
+const input = byId("input-language");
+const fullscreen = byId("fullscreen");
+const viewport = byId("viewport");
+const captions = byId("captions");
+const empty = byId("empty");
+const follow = byId("follow");
+const meter = byId("meter");
+const headings = [...byId("language-headings").children];
+const privacy = "音声と翻訳は端末内で処理";
+const states = {
+  idle: ["停止中", "開始"],
+  starting: ["準備中", "中止"],
+  live: ["マイク入力中", "停止"],
+  draining: ["字幕を確定中", "停止"],
+  error: ["停止中", "開始"],
+};
+
+let session = null;
+let engine = null;
+let draft = null;
+let followsLatest = true;
+
+function showState(state, message = privacy) {
+  const [label, action] = states[state];
+  status.dataset.state = state;
+  if (statusText.textContent !== label) statusText.textContent = label;
+  if (detail.textContent !== message) detail.textContent = message;
+  toggleText.textContent = action;
+  toggle.toggleAttribute("data-running", state === "live" || state === "starting");
+  toggle.disabled = state === "draining";
+  if (state !== "starting") download.hidden = true;
+  if (state !== "live") meter.style.setProperty("--level", "0");
+}
+
+function trackLatest() {
+  if (followsLatest) viewport.scrollTop = viewport.scrollHeight;
+  follow.hidden = followsLatest;
+}
+
+viewport.addEventListener("scroll", () => {
+  followsLatest = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 48;
+  follow.hidden = followsLatest;
+});
+follow.addEventListener("click", () => {
+  followsLatest = true;
+  trackLatest();
+});
+
+fullscreen.hidden = !document.fullscreenEnabled;
+fullscreen.addEventListener("click", async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  } catch {
+    detail.textContent = "全画面表示に切り替えられませんでした。";
+  }
+});
+document.addEventListener("fullscreenchange", () => {
+  const label = document.fullscreenElement ? "全画面表示を終了" : "全画面表示";
+  fullscreen.title = label;
+  fullscreen.setAttribute("aria-label", label);
+  trackLatest();
+});
+
+function discardDraft(run, id = draft?.id) {
+  if (draft?.run !== run || draft.id !== id) return;
+  draft.row.remove();
+  draft = null;
+  empty.hidden = captions.children.length > 0;
+}
+
+function renderCaption(run, clip, source, translation) {
+  let row = draft?.run === run && draft.id === clip.id ? draft.row : null;
+  if (!row) {
+    row = document.createElement("div");
+    row.className = "caption-row columns";
+    row.setAttribute("role", "listitem");
+    for (const language of languages) {
+      const cell = document.createElement("p");
+      cell.className = "caption";
+      cell.lang = language;
+      row.append(cell);
+    }
+    captions.append(row);
+  }
+
+  for (const cell of row.children) {
+    const text = translation[cell.lang];
+    cell.textContent = text || "—";
+    cell.toggleAttribute("data-unavailable", !text);
+    cell.title = text ? "" : "翻訳を取得できませんでした。";
+  }
+  for (const heading of headings) heading.toggleAttribute("data-current", heading.dataset.language === source);
+  row.toggleAttribute("data-partial", !clip.final);
+  draft = clip.final ? null : { run, id: clip.id, row };
+  empty.hidden = true;
+  while (captions.children.length > 80) captions.firstElementChild.remove();
+  trackLatest();
+}
+
+function getEngine() {
+  if (engine) return engine;
+  const worker = new Worker(new URL("./whisper-worker.mjs", import.meta.url), { type: "module" });
+  const waiting = new Map();
+  let nextId = 0;
+  let resolveReady;
+  let rejectReady;
+  const ready = new Promise((resolve, reject) => {
+    resolveReady = resolve;
+    rejectReady = reject;
+  });
+
+  function fail(error) {
+    engine = null;
+    worker.terminate();
+    rejectReady(error);
+    for (const callback of waiting.values()) callback.reject(error);
+    waiting.clear();
+  }
+
+  worker.addEventListener("error", event => fail(new Error(event.message || "Recognition worker failed")));
+  worker.addEventListener("message", ({ data }) => {
+    if (data.type === "progress" && session?.phase === "starting") {
+      download.hidden = false;
+      if (Number.isFinite(data.value)) download.value = data.value;
+      else download.removeAttribute("value");
+    } else if (data.type === "ready") {
+      resolveReady();
+    } else if (data.type === "result") {
+      waiting.get(data.id)?.resolve(data);
+      waiting.delete(data.id);
+    } else if (data.type === "error") {
+      fail(new Error(data.message));
+    }
+  });
+
+  engine = {
+    ready,
+    transcribe(clip) {
+      const id = nextId++;
+      return new Promise((resolve, reject) => {
+        waiting.set(id, { resolve, reject });
+        worker.postMessage({ type: "transcribe", id, language: clip.language, samples: clip.samples }, [clip.samples.buffer]);
+      });
+    },
+  };
+  worker.postMessage({ type: "load" });
+  return engine;
+}
+
+async function closeCapture(run) {
+  for (const track of run.stream?.getTracks() ?? []) track.stop();
+  if (run.detector) await run.detector.destroy().catch(() => {});
+  if (run.context && run.context.state !== "closed") await run.context.close().catch(() => {});
+}
+
+function failSession(run, message, error) {
+  if (session !== run) return;
+  session = null;
+  discardDraft(run);
+  void closeCapture(run);
+  showState("error", message);
+  if (error) console.warn("Live Captions", error.message);
+}
+
+function finishSession(run) {
+  if (session !== run || run.phase !== "draining" || run.busy || run.queue.length) return;
+  session = null;
+  discardDraft(run);
+  showState(run.stopReason ? "error" : "idle", run.stopReason);
+}
+
+function stopSession(run, reason) {
+  if (run.phase === "starting") {
+    failSession(run, privacy);
+    showState("idle");
+    return;
+  }
+  if (run.phase !== "live") return;
+  run.phase = "draining";
+  run.stopReason = reason;
+  void closeCapture(run);
+  showState("draining", "残りの発話を翻訳しています。");
+  run.segments.finish();
+  finishSession(run);
+}
+
+function enqueue(run, clip) {
+  run.queue.push(clip);
+  if (run.queue.length >= 30 && run.phase === "live") {
+    stopSession(run, "処理が発話に追いつかなかったため停止しました。");
+  }
+  if (!run.busy) void processQueue(run);
+}
+
+async function processQueue(run) {
+  run.busy = true;
+  try {
+    while (session === run && run.queue.length) {
+      const clip = run.queue.shift();
+      const { language, text } = await run.recognition.transcribe(clip);
+      if (session !== run) break;
+      if (!language || !text) {
+        if (clip.final) discardDraft(run, clip.id);
+        continue;
+      }
+      const preview = run.lastTranslation;
+      const reused = preview?.id === clip.id && preview.source === language && preview.text === text;
+      const values = reused ? preview.values : await translateCaption(text, language);
+      if (session !== run) break;
+      renderCaption(run, clip, language, values);
+      const allTranslated = languages.every(code => values[code]);
+      run.lastTranslation = !clip.final && allTranslated ? { id: clip.id, source: language, text, values } : null;
+      if (run.phase === "live") {
+        showState("live", allTranslated ? privacy : "一部の翻訳を取得できませんでした。停止して再開すると再試行できます。");
+      }
+    }
+  } catch (error) {
+    failSession(run, "音声認識が止まりました。開始を押して再試行してください。", error);
+  } finally {
+    run.busy = false;
+    finishSession(run);
+  }
+}
+
+async function startSession() {
+  const run = { phase: "starting", queue: [], busy: false };
+  session = run;
+  showState("starting", "初回は音声認識と翻訳のモデルをダウンロードします。");
+  download.hidden = false;
+  download.removeAttribute("value");
+  let errorMessage = "モデルの準備に失敗しました。接続を確認して、もう一度開始してください。";
+
+  try {
+    const translations = prepareTranslation();
+    run.context = new AudioContext();
+    const resume = run.context.resume();
+    run.recognition = getEngine();
+    const [MicVAD] = await Promise.all([prepareAudio(), translations, run.recognition.ready, resume]);
+    if (session !== run) return;
+
+    showState("starting", "ブラウザのマイク使用を許可してください。");
+    download.hidden = true;
+    const stream = await openMicrophone();
+    run.stream = stream;
+    if (session !== run) {
+      void closeCapture(run);
+      return;
+    }
+
+    errorMessage = "マイクを初期化できませんでした。入力デバイスを確認して再試行してください。";
+    run.segments = new SpeechSegments(clip => enqueue(run, clip), () => !run.busy, () => input.value);
+    run.detector = await createDetector(MicVAD, run.context, stream, (probability, samples) => {
+      if (session !== run || run.phase !== "live") return;
+      meter.style.setProperty("--level", String(microphoneLevel(samples)));
+      run.segments.push(probability, samples);
+    });
+    if (session !== run) {
+      void closeCapture(run);
+      return;
+    }
+
+    await run.detector.start();
+    if (session !== run) {
+      void closeCapture(run);
+      return;
+    }
+    stream.getAudioTracks()[0].addEventListener("ended", () => {
+      if (session === run) stopSession(run, "マイクとの接続が切れました。");
+    }, { once: true });
+    run.phase = "live";
+    empty.textContent = "発話を待っています。";
+    showState("live");
+  } catch (error) {
+    if (error.name === "NotAllowedError" && run.recognition && download.hidden) {
+      errorMessage = "アドレスバーからマイクを許可し、開始を押してください。";
+    } else if (error.name === "NotFoundError") {
+      errorMessage = "マイクが見つかりません。接続してから開始してください。";
+    } else if (error.name === "NotReadableError") {
+      errorMessage = "マイクを開けませんでした。OS のマイク設定を確認してください。";
+    }
+    failSession(run, errorMessage, error);
+  }
+}
+
+toggle.addEventListener("click", () => {
+  if (session) stopSession(session);
+  else void startSession();
+});
+
+window.addEventListener("pagehide", () => {
+  if (session) stopSession(session);
+});
+
+if (!globalThis.Translator?.create || !navigator.mediaDevices?.getUserMedia) {
+  showState("error", "翻訳機能を利用できるデスクトップ版 Google Chrome で開いてください。");
+  toggle.disabled = true;
+} else {
+  showState("idle");
+}
