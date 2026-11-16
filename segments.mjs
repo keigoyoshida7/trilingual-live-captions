@@ -60,7 +60,8 @@ export class SpeechSegments {
     }
 
     if (frames >= this.nextPreview && this.silence === 0 && this.voiceFrames >= minSpeech && this.canPreview()) {
-      this.onClip({ id: this.id, final: false, language: this.language, samples: joinFrames(this.frames) });
+      const samples = joinFrames(this.frames);
+      this.onClip({ id: this.id, final: false, language: this.language, start: this.samplesSeen - samples.length, samples });
       this.nextPreview = frames + previewInterval;
     }
   }

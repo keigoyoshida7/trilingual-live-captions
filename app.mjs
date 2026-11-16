@@ -1,7 +1,7 @@
 import { createDetector, microphoneLevel, openMicrophone, prepareAudio } from "./audio.mjs";
 import { alignRevision, areNeighbors, joinUtterances } from "./context.mjs?v=3";
-import { SpeechSegments } from "./segments.mjs?v=3";
-import { prepareTranslation, translateCaption, translateInContext } from "./translation.mjs?v=4";
+import { SpeechSegments } from "./segments.mjs?v=5";
+import { prepareTranslation, translateCaption, translateInContext } from "./translation.mjs?v=5";
 import { languages } from "./whisper-prefix.mjs";
 
 const byId = id => document.getElementById(id);
@@ -126,7 +126,7 @@ function renderCaption(run, clip, source, translation) {
 function getEngine(mode) {
   if (engine?.mode === mode) return engine;
   engine?.dispose();
-  const worker = new Worker(new URL("./whisper-worker.mjs?v=4", import.meta.url), { type: "module" });
+  const worker = new Worker(new URL("./whisper-worker.mjs?v=5", import.meta.url), { type: "module" });
   const waiting = new Map();
   let nextId = 0;
   let resolveReady;
@@ -272,7 +272,7 @@ async function reviewCaptions(run, { before, first, second }) {
   if (session !== run) return;
 
   const baseline = await Promise.all(entries.map((entry, i) => entry.text === texts[i] ||
-    languages.every(language => contextual[i][language]) ? entry.values : translateCaption(texts[i], entry.source)));
+    languages.every(language => contextual[i][language]) ? entry.values : translateCaption(texts[i], entry.source, i === 0 ? preceding : texts[0])));
   if (session !== run) return;
 
   for (const [i, entry] of entries.entries()) {
@@ -305,7 +305,9 @@ async function processQueue(run) {
       }
       const clip = run.queue.shift();
       const audio = clip.final ? clip.samples.slice() : null;
-      const { language, text } = await run.recognition.transcribe({ ...clip, prior: run.recent.at(-1)?.text });
+      const previous = run.recent.at(-1);
+      const prior = previous && clip.start - previous.end <= 80_000 ? previous.text : "";
+      const { language, text } = await run.recognition.transcribe({ ...clip, prior });
       if (session !== run) break;
       if (!language || !text) {
         if (clip.final) discardDraft(run, clip.id);
@@ -313,7 +315,7 @@ async function processQueue(run) {
       }
       const preview = run.lastTranslation;
       const reused = preview?.id === clip.id && preview.source === language && preview.text === text;
-      const values = reused ? preview.values : await translateCaption(text, language);
+      const values = reused ? preview.values : await translateCaption(text, language, prior);
       if (session !== run) break;
       const row = renderCaption(run, clip, language, values);
       if (clip.final) {

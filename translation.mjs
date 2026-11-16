@@ -1,6 +1,6 @@
 import { languages } from "./whisper-prefix.mjs";
 import { translationPacket, unpackTranslation } from "./context.mjs?v=3";
-import { correctTerminology, protectTerminology } from "./dot-area-terms.mjs?v=4";
+import { correctTerminology, protectTerminology } from "./dot-area-terms.mjs?v=5";
 
 const translators = new Map();
 const pairs = languages.flatMap(source => languages.filter(target => target !== source).map(target => [source, target]));
@@ -32,16 +32,16 @@ export async function prepareTranslation(requestGesture, signal) {
   }
 }
 
-async function translate(text, source, target) {
+async function translate(text, source, target, prior = "") {
   if (target === source) return text;
   const key = `${source}-${target}`;
   const translator = await translators.get(key);
   try {
-    const guarded = protectTerminology(text, target);
+    const guarded = protectTerminology(text, target, prior);
     const result = await translator.translate(guarded.input);
     const restored = guarded.restore(result);
     if (restored !== null) return restored;
-    return correctTerminology(await translator.translate(text), target);
+    return correctTerminology(await translator.translate(text), target, prior);
   } catch (error) {
     translators.delete(key);
     translator?.destroy();
@@ -49,8 +49,8 @@ async function translate(text, source, target) {
   }
 }
 
-export async function translateCaption(text, source) {
-  const results = await Promise.allSettled(languages.map(target => translate(text, source, target)));
+export async function translateCaption(text, source, prior = "") {
+  const results = await Promise.allSettled(languages.map(target => translate(text, source, target, prior)));
   return Object.fromEntries(languages.map((code, i) => [code, results[i].value?.trim() || null]));
 }
 
