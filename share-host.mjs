@@ -80,7 +80,6 @@ function finishShare(issue = false) {
   const disconnect = () => void run.room?.sdk.disconnect().catch(() => {});
   if (sent) setTimeout(disconnect, 300);
   else disconnect();
-  share.textContent = "字幕を共有";
   share.removeAttribute("data-sharing");
   link.value = "";
   details.hidden = qr.hidden = stop.hidden = true;
@@ -136,7 +135,6 @@ async function startShare() {
     link.value = url;
     copy.textContent = "コピー";
     details.hidden = false;
-    share.textContent = "視聴リンク";
     share.setAttribute("data-sharing", "");
     updateStatus(run);
     void drawQr(run).catch(() => {});
