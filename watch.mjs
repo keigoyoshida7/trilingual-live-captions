@@ -13,7 +13,6 @@ const headings = Array.from(document.getElementById("language-headings").childre
 const languageButtons = Array.from(document.getElementById("watch-languages").children);
 const trackLatest = followCaptions(viewport, follow);
 const rows = new Map();
-const secret = location.hash.slice(1);
 const states = {
   connecting: ["starting", "接続中…", "配信者に接続しています。"],
   waiting: ["idle", "開始待ち", "配信者が開始すると、ここに字幕が流れます。"],
@@ -28,6 +27,7 @@ const states = {
 
 let viewing = null;
 let ended = false;
+let secret = location.hash.slice(1);
 
 function showState(state) {
   const [style, label, message] = states[state];
@@ -138,6 +138,16 @@ async function connect() {
 }
 
 retry.addEventListener("click", () => void connect());
+window.addEventListener("hashchange", () => {
+  secret = location.hash.slice(1);
+  ended = false;
+  rows.clear();
+  captions.replaceChildren();
+  empty.hidden = false;
+  for (const heading of headings) heading.removeAttribute("data-current");
+  follow.click();
+  void connect();
+});
 window.addEventListener("pagehide", disconnect);
 window.addEventListener("pageshow", ({ persisted }) => {
   if (persisted && !ended) void connect();
