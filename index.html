@@ -7,8 +7,9 @@
   <meta name="description" content="マイクから日本語・英語・フランス語を聞き取り、3列の字幕に。">
   <meta name="google" content="notranslate">
   <title>Live Captions</title>
-  <link rel="stylesheet" href="./styles.css">
-  <script type="module" src="./app.mjs?v=7"></script>
+  <link rel="stylesheet" href="./styles.css?v=8">
+  <script type="module" src="./app.mjs?v=8"></script>
+  <script type="module" src="./share-host.mjs?v=1"></script>
 </head>
 <body>
   <header class="toolbar">
@@ -38,6 +39,7 @@
       <button id="fullscreen" class="fullscreen" type="button" aria-label="全画面表示" title="全画面表示" hidden>
         <span class="corners" aria-hidden="true"></span>
       </button>
+      <button id="share" class="share-button" type="button" aria-haspopup="dialog">字幕を共有</button>
       <button id="prepare-pair" class="prepare-pair" type="button" hidden>翻訳を準備</button>
       <button id="toggle" class="toggle" type="button" disabled>
         <span class="play" aria-hidden="true"></span>
@@ -64,6 +66,27 @@
     <progress id="download" max="100" aria-label="音声認識モデルのダウンロード進捗" hidden></progress>
     <span id="meter" class="meter" aria-hidden="true"><i></i></span>
   </footer>
+  <dialog class="share-dialog" id="share-dialog" aria-labelledby="share-title">
+    <div class="share-heading">
+      <h2 id="share-title">視聴リンク</h2>
+      <form method="dialog">
+        <button type="submit" aria-label="閉じる" autofocus>閉じる</button>
+      </form>
+    </div>
+    <p id="share-status" class="share-status" role="status"></p>
+    <div id="share-details" hidden>
+      <canvas id="share-qr" class="share-qr" role="img" aria-label="視聴リンクのQRコード" hidden></canvas>
+      <div class="share-link">
+        <input id="share-url" aria-label="視聴URL" readonly>
+        <button id="share-copy" type="button">コピー</button>
+      </div>
+      <p class="share-note">リンクを知っている人に、字幕のテキストが表示されます。</p>
+    </div>
+    <div class="share-actions">
+      <button id="share-retry" type="button" hidden>再試行</button>
+      <button id="share-stop" type="button" hidden>共有を終了</button>
+    </div>
+  </dialog>
   <noscript>このページの利用には JavaScript が必要です。</noscript>
 </body>
 </html>

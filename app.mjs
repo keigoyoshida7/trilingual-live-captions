@@ -1,4 +1,5 @@
 import { createDetector, microphoneLevel, openMicrophone, prepareAudio } from "./audio.mjs";
+import { createCaptionRow, followCaptions, paintCaption } from "./caption-view.mjs?v=1";
 import { alignRevision, areNeighbors, joinUtterances } from "./context.mjs?v=3";
 import { SpeechSegments } from "./segments.mjs?v=5";
 import { prepareTranslation, translateCaption, translateInContext } from "./translation.mjs?v=7";
@@ -21,6 +22,7 @@ const empty = byId("empty");
 const follow = byId("follow");
 const meter = byId("meter");
 const headings = [...byId("language-headings").children];
+const trackLatest = followCaptions(viewport, follow);
 const privacy = "音声と翻訳は端末内で処理";
 const languageNames = { ja: "日本語", en: "英語", fr: "フランス語" };
 const states = {
@@ -34,7 +36,6 @@ const states = {
 let session = null;
 let engine = null;
 let draft = null;
-let followsLatest = true;
 
 function showState(state, message = privacy) {
   const [label, action] = states[state];
@@ -51,20 +52,6 @@ function showState(state, message = privacy) {
   }
   if (state !== "live") meter.style.setProperty("--level", "0");
 }
-
-function trackLatest() {
-  if (followsLatest) viewport.scrollTop = viewport.scrollHeight;
-  follow.hidden = followsLatest;
-}
-
-viewport.addEventListener("scroll", () => {
-  followsLatest = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 48;
-  follow.hidden = followsLatest;
-});
-follow.addEventListener("click", () => {
-  followsLatest = true;
-  trackLatest();
-});
 
 fullscreen.hidden = !document.fullscreenEnabled;
 fullscreen.addEventListener("click", async () => {
@@ -89,27 +76,10 @@ function discardDraft(run, id = draft?.id) {
   empty.hidden = captions.children.length > 0;
 }
 
-function paintCaption(row, translation) {
-  for (const cell of row.children) {
-    const text = translation[cell.lang];
-    cell.textContent = text || "—";
-    cell.toggleAttribute("data-unavailable", !text);
-    cell.title = text ? "" : "翻訳を取得できませんでした。";
-  }
-}
-
 function renderCaption(run, clip, source, translation) {
   let row = draft?.run === run && draft.id === clip.id ? draft.row : null;
   if (!row) {
-    row = document.createElement("div");
-    row.className = "caption-row columns";
-    row.setAttribute("role", "listitem");
-    for (const language of languages) {
-      const cell = document.createElement("p");
-      cell.className = "caption";
-      cell.lang = language;
-      row.append(cell);
-    }
+    row = createCaptionRow();
     captions.append(row);
   }
 

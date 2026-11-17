@@ -24,8 +24,8 @@ body {
   padding: 0 var(--gutter);
 }
 
-button, select { font: inherit; color: inherit; }
-button:focus-visible, select:focus-visible, .viewport:focus-visible {
+button, select, input { font: inherit; color: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible, .viewport:focus-visible {
   outline: 2px solid var(--on-air);
   outline-offset: 3px;
 }
@@ -68,6 +68,8 @@ button:disabled { cursor: default; opacity: .5; }
 .controls button:hover:not(:disabled), select:hover, .follow:hover { border-color: #a4a098; }
 
 .fullscreen { width: 42px; display: grid; place-items: center; }
+.share-button { padding: 0 12px; white-space: nowrap; }
+.controls .share-button[data-sharing] { border-color: #626e59; color: var(--on-air); }
 .controls .prepare-pair { padding: 0 12px; background: var(--ink); color: #080808; border-color: var(--ink); }
 .corners {
   width: 14px;
@@ -171,6 +173,57 @@ button:disabled { cursor: default; opacity: .5; }
 .footer progress { width: clamp(40px, 11vw, 140px); height: 4px; accent-color: var(--on-air); }
 .meter { margin-left: auto; width: clamp(30px, 7vw, 88px); height: 3px; flex: none; background: var(--rule); overflow: hidden; }
 .meter i { display: block; height: 100%; transform: scaleX(var(--level, 0)); transform-origin: left; transition: transform 80ms linear; background: var(--on-air); }
+
+.share-dialog {
+  width: min(456px, calc(100% - 28px));
+  max-height: calc(100dvh - 28px);
+  padding: clamp(16px, 4vw, 26px);
+  color: var(--ink);
+  background: #080808;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+.share-dialog::backdrop { background: #000b; }
+.share-heading, .share-link, .share-actions { display: flex; align-items: center; gap: 10px; }
+.share-heading { justify-content: space-between; }
+.share-heading h2 { margin: 0; font-size: 23px; font-weight: 500; }
+.share-dialog button, .share-link input, .watch-languages button {
+  background: #0e0e0d;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  min-height: 42px;
+  padding: 0 12px;
+}
+.share-dialog button { flex: none; white-space: nowrap; }
+.share-dialog button:hover, .watch-languages button:hover { border-color: #a4a098; }
+.share-status, .share-note { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.share-status { margin: 16px 0; }
+.share-qr { display: block; width: 184px; max-width: 100%; height: auto; margin: 0 auto 16px; }
+.share-link input { width: 0; min-width: 0; flex: 1; font-family: ui-monospace, monospace; font-size: 13px; }
+.share-dialog #share-copy { background: var(--ink); color: #080808; border-color: var(--ink); }
+.share-actions { justify-content: flex-end; }
+
+.watch-view { grid-template-rows: auto minmax(0, 1fr); padding-bottom: env(safe-area-inset-bottom); }
+.watch-languages { display: none; }
+
+@media (max-width: 720px) {
+  .watch-view .language-headings { display: none; }
+  .watch-languages {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .watch-languages button { min-width: 0; padding: 0 6px; }
+  .watch-languages button[aria-pressed="true"] { color: var(--ink); background: #1a1a18; border-color: #8e8c84; }
+  .watch-view .viewport { background-image: none; }
+  .watch-view .caption-row { display: block; }
+  .watch-view .caption { display: none; font-size: clamp(24px, 6.4vw, 34px); padding: 18px 5px; }
+  .watch-view[data-caption-language="ja"] .caption[lang="ja"],
+  .watch-view[data-caption-language="en"] .caption[lang="en"],
+  .watch-view[data-caption-language="fr"] .caption[lang="fr"] { display: block; }
+}
 
 @media (max-width: 550px) {
   .toolbar { min-height: 0; padding: 8px 0; }
